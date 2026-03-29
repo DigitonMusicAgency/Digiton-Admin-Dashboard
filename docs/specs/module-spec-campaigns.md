@@ -1,4 +1,4 @@
-﻿# Module Spec - Kampane
+# Module Spec - Kampane
 
 ## 1. Ucel modulu
 
@@ -368,7 +368,7 @@ Muze:
 - videt jen kampane sve organizace,
 - videt zjednoduseny detail kampane,
 - pracovat s klientsky viditelnymi poli v povolenem rozsahu,
-- pozadat o prodlouzeni kampane.
+- pozadat o prodlouzeni kampane formou samostatne zadosti nad existujici kampani.
 
 Nemuze:
 
@@ -476,5 +476,6 @@ Tento model je vhodny, protoze:
 - presna definice, ktere akce smi delat bezny klient oproti `Label / Agentura`,
 - presna podoba plneho detailu kampane,
 - presna podoba provoznich badge nebo filtru typu `po terminu kontroly` a `bez planu kontroly`.
+
 
 

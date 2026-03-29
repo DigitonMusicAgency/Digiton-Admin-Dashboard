@@ -1,4 +1,4 @@
-﻿# Module Spec - Klienti
+# Module Spec - Klienti
 
 ## 1. Ucel modulu
 
@@ -348,7 +348,7 @@ Typicky se to tyka:
 - bankovnich udaju,
 - tymu.
 
-V MVP se tato notifikace resi jako interni alert nebo zaznam v historii uvnitr aplikace.
+V MVP se tato notifikace resi jako interni inbox polozka pro admin tym uvnitr aplikace.
 E-mailova notifikace se ma doplnit v pozdejsi fazi po MVP.
 
 ## 11. Archivace klienta
@@ -461,7 +461,7 @@ Pro MVP plati:
 - pri zadosti o distribucni profil interpreta je e-mail povinny a stav se nastavi na `Zazadano`,
 - bezny klient zalozku `Interpreti` nevidi,
 - klient muze upravit kontaktni, hlavni e-mail klientskeho uctu, fakturacni a bankovni udaje,
-- klientska zmena techto udaju vyvola interni alert pro admin tym,
+- klientska zmena techto udaju vyvola interni inbox polozku pro admin tym,
 - zalozka `Kampane` na detailu klienta ukaze rychly prehled kampani a az akce `Zobrazit vice` otevre plny modul,
 - klient jde archivovat bez rozbiti vazeb na kampane,
 - distribucni prazdny stav se v adminu ukaze i u klienta bez aktivni distribuce,
@@ -472,6 +472,8 @@ Pro MVP plati:
 - detailni sloupce a akce v plnem modulu `Kampane`,
 - presna podoba interniho alertu po zmene klientskych udaju,
 - presna podoba spravy pristupu interpreta v zalozce `Interpreti`.
+
+
 
 
 

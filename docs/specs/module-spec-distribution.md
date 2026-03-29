@@ -1,4 +1,4 @@
-﻿# Module Spec - Distribuce
+# Module Spec - Distribuce
 
 ## 1. Ucel modulu
 
@@ -187,8 +187,8 @@ Stejne tak muze pri ukoncene distribuci:
 
 ### 8.3 Co se stane po odeslani
 
-Po odeslani vznikne interni pozadavek pro admin tym.
-Presna podoba alertu nebo inboxu muze byt v MVP jednoducha a bez e-mailu.
+Po odeslani vznikne inbox polozka pro admin tym.
+Jeji podoba muze byt v MVP jednoducha a bez e-mailu.
 Dulezite je, aby se na pozadavek nezapomnelo a tym ho videl uvnitr systemu.
 
 ## 9. PDF smlouva
@@ -225,8 +225,8 @@ Distribuce se v MVP uz nevztahuje na interprety jako samostatne distribucni zazn
 ### 10.3 Vztah k admin workflow
 
 Admin tym muze profily interpretu zakladat, vyplnovat a upravovat bez omezeni.
-Pokud `Label / Agentura` zalozi noveho interpreta se zazadanym distribucnim profilem, vznika tim interni pozadavek pro admin tym.
-To je navazna klientská a distribucni logika, ale stale nejde o samostatny distribucni modul interpreta.
+Pokud `Label / Agentura` zalozi noveho interpreta se zazadanym distribucnim profilem, vznika tim inbox polozka pro admin tym.
+To je navazna klientsk� a distribucni logika, ale stale nejde o samostatny distribucni modul interpreta.
 
 ## 11. Opravneni podle role
 
@@ -314,7 +314,7 @@ Klient:
 - `Klienti` jsou zdrojem pravdy pro identitu klienta, zemi, affiliate, fakturaci a bankovni udaje,
 - `Auth a role` urcuje, kdo distribuci spravuje a kdo ji pouze cte,
 - `Soubory` nebo navazujici implementacni krok resi technickou praci s PDF smlouvou,
-- `Notifikace` nebo interni alerty pozdeji doplni obsluhu zadosti o distribuci.
+- `Implementation Spec - Client Inbox and Internal Notifications` resi jednotnou obsluhu zadosti o distribuci uvnitr aplikace.
 
 ## 15. Akceptacni kriteria
 
@@ -325,12 +325,14 @@ Klient:
 - klient nemuze menit podil, smluvni data, menu ani status distribuce,
 - distribuce neprebira `affiliate`, `zemi`, fakturacni ani bankovni udaje znovu do vlastnich poli,
 - `Label / Agentura` ma seznam interpretu a u kazdeho z nich muze vzniknout lehky stavovy distribucni profil, ale ne samostatny distribucni modul,
-- zalozeni noveho interpreta bez zazadaneho distribucniho profilu neotevre distribucni workflow, ale pri zazadani o distribucni profil vznikne interni pozadavek pro admin tym.
+- zalozeni noveho interpreta bez zazadaneho distribucniho profilu neotevre distribucni workflow, ale pri zazadani o distribucni profil vznikne inbox polozka pro admin tym.
 
 ## 16. Otevrene body pro dalsi review
 
-- presna podoba interniho alertu po zadosti o distribuci,
+- dalsi navaznost na e-mailove nebo dashboard notifikace nad inboxem,
 - presna podoba prazdneho stavu v klientskem pohledu,
 - zda ma byt kratka zprava pri zadosti povinna nebo nepovinna,
 - jak presne se bude v budoucnu resit znovuzalozeni distribuce z pohledu workflow tymu.
+
+
 

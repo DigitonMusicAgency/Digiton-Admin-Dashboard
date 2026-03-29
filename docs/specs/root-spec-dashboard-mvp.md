@@ -1,4 +1,4 @@
-﻿# Root Spec - Digiton Admin Dashboard MVP
+# Root Spec - Digiton Admin Dashboard MVP
 
 ## 1. Ucel dokumentu
 
@@ -33,7 +33,7 @@ System ma:
 - sprava klientu, kampani, tymu klienta a distribucni zalozky,
 - admin prihlaseni pres e-mail, heslo a povinne 2FA,
 - klientske prihlaseni pres e-mail a heslo,
-- e-mailove notifikace pro zakladni provozni workflow,
+- e-mailove notifikace pro klicove provozni workflow kampani,
 - archivace misto tvrdeho mazani v interni sprave,
 - read-only klientsky nahled pro admina.
 
@@ -426,7 +426,7 @@ Klient muze v MVP upravit:
 - tym klienta,
 - poznamky nebo dalsi povolene casti kampane podle modulu Kampane.
 
-Zmena zakladnich klientskych udaju ma vyvolat notifikaci pro admin tym.
+Zmena zakladnich klientskych udaju ma vyvolat interni inbox polozku pro admin tym.
 
 ### 11.3 Specialni klient typu Label / Agentura
 
@@ -446,12 +446,16 @@ Po odeslani kampane ke kontrole:
 
 ### 12.1 Admin dashboard
 
+Admin dashboard ma v MVP fungovat jako operativni domovska obrazovka pro admin tym.
+Ma kombinovat souhrnne metriky, prioritni fronty a rychle odkazy do hlavnich admin sekci.
+
 Kampane:
 
 - celkem kampani
 - aktivni kampane
 - cekajici kampane
 - kampane brzy koncici
+- fronty `bez planu kontroly`, `kontrola dnes`, `po terminu kontroly`
 
 Klienti:
 
@@ -459,12 +463,22 @@ Klienti:
 - pocet klientu v distribuci
 - dalsi dulezite agregovane metriky
 
+Inbox:
+
+- zkraceny prehled novych interni inbox polozek s proklikem do plne sekce `Inbox`
+
 ### 12.2 Klientsky dashboard
+
+Klientsky dashboard ma v MVP fungovat jako lehka domovska obrazovka a rozcestnik do klientskych casti aplikace.
+Ma kombinovat jednoduche metriky, prioritni kampanove bloky a rychle odkazy bez interniho provozniho sumu.
 
 - aktivni kampane
 - celkem kampani
+- prioritni bloky pro kampane, reporty a prodlouzeni
+- lehce rozsirenou variantu pro `Label / Agentura`
 
 Kliknuti na metriku ma vest na konkretni filtrovanou sadu zaznamu, ne jen ukazat cislo.
+Distribuce se v MVP na dashboard nepromita jako samostatny panel a zustava v profilu klienta.
 
 ## 13. E-mailove workflow
 
@@ -536,6 +550,10 @@ Temata, ktera se maji rozhodnout pozdeji nebo v samostatnych modulech:
 - vice interni roli,
 - vice fakturacnich subjektu pod jednim klientem,
 - dalsi integrace.
+
+
+
+
 
 
 

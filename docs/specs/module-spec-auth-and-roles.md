@@ -1,4 +1,4 @@
-﻿# Module Spec - Auth a role
+# Module Spec - Auth a role
 
 ## 1. Ucel modulu
 
@@ -199,7 +199,8 @@ Kazdy uzivatel ma svuj profil, ktery muze obsahovat alespon:
 - jmeno,
 - login e-mail,
 - heslo,
-- profilovou fotku.
+- profilovou fotku,
+- osobni nastaveni klientskych notifikaci, pokud je tato vrstva zavedena.
 
 Profilova fotka account managera se zobrazuje klientovi v klientskem pohledu.
 
@@ -234,6 +235,7 @@ To slouzi hlavne pro:
 - admin v tomto rezimu nic neuklada,
 - admin v tomto rezimu neposila formulare,
 - admin v tomto rezimu nevyvolava klientske notifikace,
+- pokud je vrstva osobnich notifikacnich preferenci zavedena, admin v tomto rezimu vidi jejich aktualni stav jen pro cteni,
 - system musi vizualne jasne ukazat, ze jde o nahled, ne o realne prihlaseni klienta.
 
 ### 8.3 Duvod rozhodnuti
@@ -273,7 +275,7 @@ Tento modul ovlivnuje:
 - u interpreta je zazadany distribucni profil bez e-mailu,
 - klientsky uzivatel je zablokovan, ale organizace zustava aktivni,
 - admin otevira klientsky nahled klienta bez aktivni distribuce,
-- klient meni zakladni udaje a system musi vyvolat interni alert pro admin tym.
+- klient meni zakladni udaje a system musi vyvolat interni inbox polozku pro admin tym.
 
 ## 12. MVP vs pozdeji
 
@@ -320,6 +322,11 @@ Tento modul ovlivnuje:
 - ktere konkretni kampanove akce mohou delat bezni klienti oproti `Label / Agentura`,
 - zda bude blokace uctu spojena i s notifikaci e-mailem,
 - jestli se do budouci faze prida jemnejsi role model pro klientske tymy.
+
+
+
+
+
 
 
 
