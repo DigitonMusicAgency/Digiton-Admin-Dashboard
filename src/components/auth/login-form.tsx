@@ -98,7 +98,9 @@ export function LoginForm({ nextPath, errorCode }: LoginFormProps) {
 
       <form className="space-y-4" onSubmit={handleSignIn}>
         <div className="space-y-2">
-          <Label htmlFor="email">Login e-mail</Label>
+          <Label className="text-slate-200" htmlFor="email">
+            Login e-mail
+          </Label>
           <Input
             autoComplete="email"
             id="email"
@@ -110,7 +112,9 @@ export function LoginForm({ nextPath, errorCode }: LoginFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Heslo</Label>
+          <Label className="text-slate-200" htmlFor="password">
+            Heslo
+          </Label>
           <Input
             autoComplete="current-password"
             id="password"

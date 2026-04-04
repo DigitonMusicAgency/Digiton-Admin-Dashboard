@@ -257,7 +257,9 @@ export function MfaPanel({ nextPath = "/admin" }: MfaPanelProps) {
       {!isLoading && factor ? (
         <form className="space-y-4" onSubmit={handleVerify}>
           <div className="space-y-2">
-            <Label htmlFor="mfa-code">Overovaci kod z authenticator app</Label>
+        <Label className="text-slate-200" htmlFor="mfa-code">
+          Overovaci kod z authenticator app
+        </Label>
             <Input
               id="mfa-code"
               inputMode="numeric"

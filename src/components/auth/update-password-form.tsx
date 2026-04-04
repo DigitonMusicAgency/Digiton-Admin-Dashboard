@@ -54,7 +54,9 @@ export function UpdatePasswordForm() {
       ) : null}
 
       <div className="space-y-2">
-        <Label htmlFor="password">Nové heslo</Label>
+          <Label className="text-slate-200" htmlFor="password">
+            Nové heslo
+          </Label>
         <Input
           autoComplete="new-password"
           id="password"
@@ -65,7 +67,9 @@ export function UpdatePasswordForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirm-password">Potvrzení hesla</Label>
+          <Label className="text-slate-200" htmlFor="confirm-password">
+            Potvrzení hesla
+          </Label>
         <Input
           autoComplete="new-password"
           id="confirm-password"
