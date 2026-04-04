@@ -11,12 +11,13 @@ function toText(value: FormDataEntryValue | null) {
 export async function createCampaignAction(formData: FormData) {
   const context = await requireAdminContext();
   let campaignId: string;
+  const clientId = toText(formData.get("clientId"));
 
   try {
     campaignId = await createCampaignRecord({
       responsibleUserId: context.profile.id,
       name: toText(formData.get("name")),
-      clientId: toText(formData.get("clientId")),
+      clientId,
       interpreterId: toText(formData.get("interpreterId")),
       campaignStatus: toText(formData.get("campaignStatus")),
       paymentStatus: toText(formData.get("paymentStatus")),
@@ -35,7 +36,16 @@ export async function createCampaignAction(formData: FormData) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Vytvoreni kampane se nepovedlo.";
-    redirect(`/admin/campaigns?error=${encodeURIComponent(message)}`);
+    const query = new URLSearchParams({
+      modal: "create",
+      error: message,
+    });
+
+    if (clientId) {
+      query.set("clientId", clientId);
+    }
+
+    redirect(`/admin/campaigns?${query.toString()}`);
   }
 
   redirect(`/admin/campaigns?success=created&campaignId=${campaignId}`);

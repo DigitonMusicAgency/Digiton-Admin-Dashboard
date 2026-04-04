@@ -28,10 +28,10 @@ export async function updateClientDetailAction(clientId: string, formData: FormD
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Uprava klienta se nepovedla.";
-    redirect(`/admin/clients/${clientId}?error=${encodeURIComponent(message)}`);
+    redirect(`/admin/clients/${clientId}?tab=profile&error=${encodeURIComponent(message)}`);
   }
 
-  redirect(`/admin/clients/${clientId}?success=updated`);
+  redirect(`/admin/clients/${clientId}?tab=profile&success=updated`);
 }
 
 export async function createInterpreterAction(clientId: string, formData: FormData) {
@@ -47,8 +47,8 @@ export async function createInterpreterAction(clientId: string, formData: FormDa
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Vytvoreni interpreta se nepovedlo.";
-    redirect(`/admin/clients/${clientId}?error=${encodeURIComponent(message)}`);
+    redirect(`/admin/clients/${clientId}?tab=team&error=${encodeURIComponent(message)}`);
   }
 
-  redirect(`/admin/clients/${clientId}?success=interpreter-created`);
+  redirect(`/admin/clients/${clientId}?tab=team&success=interpreter-created`);
 }

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Building2,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdminContext } from "@/lib/auth/server";
 import { getAdminClientDetailWorkspace } from "@/lib/admin-workspace";
+import { formatClientStatus, formatClientType, formatPriority } from "@/lib/admin-labels";
 import { CLIENT_PRIORITIES, CLIENT_STATUSES, CLIENT_TYPES } from "@/lib/domain/constants";
 
 const SUCCESS_MESSAGES = {
@@ -20,51 +21,29 @@ const SUCCESS_MESSAGES = {
   "interpreter-created": "Interpret byl přidán ke klientovi.",
 };
 
-function formatClientType(value: string) {
-  switch (value) {
-    case "artist":
-      return "Interpret";
-    case "label_agency":
-      return "Label / Agentura";
-    case "promoter":
-      return "Pořadatel";
-    case "manager":
-      return "Manažer";
-    default:
-      return value;
-  }
-}
+const CLIENT_TABS = [
+  { key: "profile", label: "Profil", icon: Building2 },
+  { key: "team", label: "Tým a interpreti", icon: UsersRound },
+  { key: "campaigns", label: "Kampaně", icon: Megaphone },
+  { key: "finance", label: "Finance", icon: CreditCard },
+  { key: "documents", label: "Dokumenty", icon: FileText },
+] as const;
 
-function formatClientStatus(value: string) {
-  switch (value) {
-    case "active":
-      return "Aktivní";
-    case "lead":
-      return "Lead";
-    case "inactive":
-      return "Neaktivní";
-    default:
-      return value;
-  }
-}
-
-function formatPriority(value: string) {
-  switch (value) {
-    case "high":
-      return "Vysoká";
-    case "medium":
-      return "Střední";
-    case "low":
-      return "Nízká";
-    default:
-      return value;
-  }
-}
+type ClientTabKey = (typeof CLIENT_TABS)[number]["key"];
 
 type AdminClientDetailPageProps = {
   params: Promise<{ clientId: string }>;
-  searchParams: Promise<{ success?: string; error?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; tab?: string }>;
 };
+
+function getActiveTab(tab: string | undefined): ClientTabKey {
+  const fallback: ClientTabKey = "profile";
+  if (!tab) {
+    return fallback;
+  }
+
+  return CLIENT_TABS.some((item) => item.key === tab) ? (tab as ClientTabKey) : fallback;
+}
 
 export default async function AdminClientDetailPage({
   params,
@@ -73,6 +52,7 @@ export default async function AdminClientDetailPage({
   await requireAdminContext();
   const { clientId } = await params;
   const query = await searchParams;
+  const activeTab = getActiveTab(query.tab);
 
   let workspace;
   try {
@@ -106,7 +86,7 @@ export default async function AdminClientDetailPage({
       ) : null}
 
       <section className="grid gap-6 2xl:grid-cols-[340px_minmax(0,1fr)]">
-        <aside className="space-y-6 2xl:sticky 2xl:top-28 self-start">
+        <aside className="self-start space-y-6 2xl:sticky 2xl:top-28">
           <Card className="rounded-[28px] border-[#d8a629]/20 bg-[radial-gradient(circle_at_top_left,_rgba(216,166,41,0.14),_transparent_34%),linear-gradient(135deg,_rgba(20,17,13,0.98),_rgba(10,9,8,0.96))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
             <CardHeader className="space-y-5">
               <div className="flex flex-wrap gap-2">
@@ -121,8 +101,8 @@ export default async function AdminClientDetailPage({
                   {workspace.client.name}
                 </CardTitle>
                 <CardDescription className="text-base leading-7 text-slate-300">
-                  Pipedrive-like pracovní detail klienta: vlevo rychlý kontext, vpravo operativní práce
-                  týmu a příprava na finance z BizKitHubu.
+                  Tohle je pracovní detail klienta. Horní část a levý souhrn zůstávají na místě, mění se
+                  jen obsah aktivní záložky — stejně jako u nástrojů typu Pipedrive nebo Bandzone profilů.
                 </CardDescription>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
@@ -200,303 +180,300 @@ export default async function AdminClientDetailPage({
         <div className="space-y-6">
           <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
             <CardContent className="flex flex-wrap gap-2 px-6 py-5">
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-                href="#client-profile"
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                Profil
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-                href="#client-team"
-              >
-                <UsersRound className="mr-2 h-4 w-4" />
-                Tým a interpreti
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-                href="#client-campaigns"
-              >
-                <Megaphone className="mr-2 h-4 w-4" />
-                Kampaně
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-                href="#client-finance"
-              >
-                <CreditCard className="mr-2 h-4 w-4" />
-                Finance
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-                href="#client-documents"
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Dokumenty
-              </Link>
+              {CLIENT_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = tab.key === activeTab;
+
+                return (
+                  <Link
+                    className={
+                      isActive
+                        ? "inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                        : "inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
+                    }
+                    href={`/admin/clients/${workspace.client.id}?tab=${tab.key}`}
+                    key={tab.key}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {tab.label}
+                  </Link>
+                );
+              })}
             </CardContent>
           </Card>
 
-          <Card
-            className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]"
-            id="client-profile"
-          >
-            <CardHeader>
-              <CardTitle className="text-white">Profil klienta</CardTitle>
-              <CardDescription className="text-slate-300">
-                Základní interní editace klienta. Tahle sekce zůstane naše vlastní CRM vrstva i po napojení BizKitHubu.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                action={updateClientDetailAction.bind(null, workspace.client.id)}
-                className="grid gap-4"
-              >
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Název klienta</label>
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.name}
-                      name="name"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Primární e-mail</label>
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.primary_email ?? ""}
-                      name="primaryEmail"
-                      type="email"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Typ klienta</label>
-                    <select
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.client_type}
-                      name="clientType"
-                    >
-                      {CLIENT_TYPES.map((value) => (
-                        <option className="bg-[#161310] text-white" key={value} value={value}>
-                          {formatClientType(value)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Status</label>
-                    <select
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.client_status}
-                      name="clientStatus"
-                    >
-                      {CLIENT_STATUSES.map((value) => (
-                        <option className="bg-[#161310] text-white" key={value} value={value}>
-                          {formatClientStatus(value)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Priorita</label>
-                    <select
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.priority}
-                      name="priority"
-                    >
-                      {CLIENT_PRIORITIES.map((value) => (
-                        <option className="bg-[#161310] text-white" key={value} value={value}>
-                          {formatPriority(value)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Země</label>
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.country ?? ""}
-                      name="country"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-200">Affiliate / poznámka</label>
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      defaultValue={workspace.client.affiliate ?? ""}
-                      name="affiliate"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-200">CRM poznámka</label>
-                  <textarea
-                    className="min-h-32 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                    defaultValue={workspace.client.crm_notes ?? ""}
-                    name="crmNotes"
-                  />
-                </div>
-
-                <div>
-                  <Button type="submit">Uložit klienta</Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]" id="client-team">
+          {activeTab === "profile" ? (
             <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
               <CardHeader>
-                <CardTitle className="text-white">Tým klienta</CardTitle>
+                <CardTitle className="text-white">Profil klienta</CardTitle>
                 <CardDescription className="text-slate-300">
-                  Tady budeme držet interní přehled lidí, kteří s klientem pracují. Invite flow pak jen doplníme.
+                  Základní interní editace klienta. Tahle sekce zůstane naše vlastní CRM vrstva i po
+                  napojení BizKitHubu.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {workspace.memberships.length === 0 ? (
+              <CardContent>
+                <form
+                  action={updateClientDetailAction.bind(null, workspace.client.id)}
+                  className="grid gap-4"
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Název klienta</label>
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.name}
+                        name="name"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Primární e-mail</label>
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.primary_email ?? ""}
+                        name="primaryEmail"
+                        type="email"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Typ klienta</label>
+                      <select
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.client_type}
+                        name="clientType"
+                      >
+                        {CLIENT_TYPES.map((value) => (
+                          <option className="bg-[#161310] text-white" key={value} value={value}>
+                            {formatClientType(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Status</label>
+                      <select
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.client_status}
+                        name="clientStatus"
+                      >
+                        {CLIENT_STATUSES.map((value) => (
+                          <option className="bg-[#161310] text-white" key={value} value={value}>
+                            {formatClientStatus(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Priorita</label>
+                      <select
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.priority}
+                        name="priority"
+                      >
+                        {CLIENT_PRIORITIES.map((value) => (
+                          <option className="bg-[#161310] text-white" key={value} value={value}>
+                            {formatPriority(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Země</label>
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.country ?? ""}
+                        name="country"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-200">Affiliate / poznámka</label>
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        defaultValue={workspace.client.affiliate ?? ""}
+                        name="affiliate"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-200">CRM poznámka</label>
+                    <textarea
+                      className="min-h-32 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                      defaultValue={workspace.client.crm_notes ?? ""}
+                      name="crmNotes"
+                    />
+                  </div>
+
+                  <div>
+                    <Button type="submit">Uložit klienta</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {activeTab === "team" ? (
+            <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+              <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
+                <CardHeader>
+                  <CardTitle className="text-white">Tým klienta</CardTitle>
+                  <CardDescription className="text-slate-300">
+                    Tady držíme interní přehled lidí, kteří ke klientovi patří. Invite flow navážeme
+                    jako další krok nad už hotovou auth vrstvou.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {workspace.memberships.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-300">
+                      Zatím bez klientského týmu.
+                    </div>
+                  ) : (
+                    workspace.memberships.map((membership) => (
+                      <div
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                        key={membership.id}
+                      >
+                        <div>
+                          <p className="font-medium text-white">
+                            {membership.user?.full_name ??
+                              membership.user?.login_email ??
+                              "Neznámý uživatel"}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-400">
+                            {membership.user?.login_email ?? "bez e-mailu"}
+                          </p>
+                        </div>
+                        <Badge variant="outline">{membership.membership_status}</Badge>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
+                <CardHeader>
+                  <CardTitle className="text-white">Přidat interpreta</CardTitle>
+                  <CardDescription className="text-slate-300">
+                    Interpret je naše vlastní agenturní entita. Tohle nám BizKitHub sám o sobě nevyřeší,
+                    takže ji držíme u nás.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    action={createInterpreterAction.bind(null, workspace.client.id)}
+                    className="grid gap-4"
+                  >
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        name="name"
+                        placeholder="Jméno interpreta"
+                        required
+                      />
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        name="email"
+                        placeholder="Kontaktní e-mail"
+                        type="email"
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
+                      <label className="flex items-center gap-3 text-sm text-slate-200">
+                        <input className="h-4 w-4 accent-[#d8a629]" name="hasAccess" type="checkbox" />
+                        Založit i login přístup
+                      </label>
+                      <input
+                        className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
+                        name="loginEmail"
+                        placeholder="Login e-mail (jen pokud zapneš přístup)"
+                        type="email"
+                      />
+                    </div>
+                    <div>
+                      <Button type="submit">Přidat interpreta</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </section>
+          ) : null}
+
+          {activeTab === "campaigns" ? (
+            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
+              <CardHeader className="gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <CardTitle className="text-white">Navázané kampaně</CardTitle>
+                  <CardDescription className="text-slate-300">
+                    Zatím naše interní kampaňová vrstva. Později sem navážeme i obchodní stav objednávky a finance.
+                  </CardDescription>
+                </div>
+                <Link
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                  href={`/admin/campaigns?modal=create&clientId=${workspace.client.id}`}
+                >
+                  Nová kampaň
+                </Link>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {workspace.campaigns.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-300">
-                    Zatím bez klientského týmu.
+                    Klient zatím nemá žádné kampaně.
                   </div>
                 ) : (
-                  workspace.memberships.map((membership) => (
+                  workspace.campaigns.map((campaign) => (
                     <div
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
-                      key={membership.id}
+                      className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between"
+                      key={campaign.id}
                     >
-                      <div>
-                        <p className="font-medium text-white">
-                          {membership.user?.full_name ?? membership.user?.login_email ?? "Neznámý uživatel"}
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-white">{campaign.name}</p>
+                          {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
+                          <Badge variant="outline">{campaign.campaign_status}</Badge>
+                          <Badge variant="outline">{campaign.payment_status}</Badge>
+                        </div>
+                        <p className="text-sm text-slate-300">
+                          {campaign.start_date ?? "?"} → {campaign.end_date ?? "?"}
+                          {" • "}
+                          {campaign.total_amount
+                            ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
+                            : "částka neuvedena"}
                         </p>
-                        <p className="mt-1 text-sm text-slate-400">{membership.user?.login_email ?? "bez e-mailu"}</p>
                       </div>
-                      <Badge variant="outline">{membership.membership_status}</Badge>
+                      <Link
+                        className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                        href={`/admin/campaigns/${campaign.id}`}
+                      >
+                        Detail kampaně
+                      </Link>
                     </div>
                   ))
                 )}
               </CardContent>
             </Card>
+          ) : null}
 
+          {activeTab === "finance" ? (
             <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
-              <CardHeader>
-                <CardTitle className="text-white">Přidat interpreta</CardTitle>
-                <CardDescription className="text-slate-300">
-                  Interpret je naše vlastní agenturní entita. Tohle nám BizKitHub sám o sobě nevyřeší.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form
-                  action={createInterpreterAction.bind(null, workspace.client.id)}
-                  className="grid gap-4"
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      name="name"
-                      placeholder="Jméno interpreta"
-                      required
-                    />
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      name="email"
-                      placeholder="Kontaktní e-mail"
-                      type="email"
-                    />
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
-                    <label className="flex items-center gap-3 text-sm text-slate-200">
-                      <input className="h-4 w-4 accent-[#d8a629]" name="hasAccess" type="checkbox" />
-                      Založit i login přístup
-                    </label>
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"
-                      name="loginEmail"
-                      placeholder="Login e-mail (jen pokud zapneš přístup)"
-                      type="email"
-                    />
-                  </div>
-                  <div>
-                    <Button type="submit">Přidat interpreta</Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </section>
-
-          <Card
-            className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]"
-            id="client-campaigns"
-          >
-            <CardHeader>
-              <CardTitle className="text-white">Navázané kampaně</CardTitle>
-              <CardDescription className="text-slate-300">
-                Zatím naše interní kampaňová vrstva. Později sem přidáme i obchodní stav objednávky a finance.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {workspace.campaigns.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-300">
-                  Klient zatím nemá žádné kampaně.
-                </div>
-              ) : (
-                workspace.campaigns.map((campaign) => (
-                  <div
-                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between"
-                    key={campaign.id}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-white">{campaign.name}</p>
-                        {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
-                        <Badge variant="outline">{campaign.campaign_status}</Badge>
-                        <Badge variant="outline">{campaign.payment_status}</Badge>
-                      </div>
-                      <p className="text-sm text-slate-300">
-                        {campaign.start_date ?? "?"} → {campaign.end_date ?? "?"}
-                        {" • "}
-                        {campaign.total_amount
-                          ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
-                          : "částka neuvedena"}
-                      </p>
-                    </div>
-                    <Link
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
-                      href={`/admin/campaigns/${campaign.id}`}
-                    >
-                      Detail kampaně
-                    </Link>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <section className="grid gap-6 xl:grid-cols-2">
-            <Card
-              className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]"
-              id="client-finance"
-            >
               <CardHeader>
                 <CardTitle className="text-white">Finance a objednávky</CardTitle>
                 <CardDescription className="text-slate-300">
-                  Tady napojíme BizKitHub: objednávky, platební stav, faktury a účtenky.
+                  Tady napojíme BizKitHub: objednávky, platební stav, faktury a účtenky. Tahle záložka
+                  bude první přímý most mezi naším rozhraním a jejich backendem.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="font-medium text-white">Source of truth</p>
                   <p className="mt-2">
-                    Obchodní část přesuneme do BizKitHubu. V našem detailu klienta pak jen zobrazíme
-                    stav objednávek, finance a odkazy na faktury.
+                    Obchodní část přesuneme do BizKitHubu. V našem detailu klienta pak zobrazíme stav
+                    objednávek, finance, faktury a odkazy na účtenky.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-dashed border-[#d8a629]/22 bg-[#d8a629]/8 p-4 text-[#f3d98e]">
@@ -504,11 +481,10 @@ export default async function AdminClientDetailPage({
                 </div>
               </CardContent>
             </Card>
+          ) : null}
 
-            <Card
-              className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]"
-              id="client-documents"
-            >
+          {activeTab === "documents" ? (
+            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
               <CardHeader>
                 <CardTitle className="text-white">Dokumenty a aktivita</CardTitle>
                 <CardDescription className="text-slate-300">
@@ -519,7 +495,8 @@ export default async function AdminClientDetailPage({
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="font-medium text-white">Aktivita klienta</p>
                   <p className="mt-2">
-                    Po UI shellu sem doplníme timeline: změny stavu, finance, interní poznámky a veřejné komentáře pro klienta.
+                    Po UI shellu sem doplníme timeline: změny stavu, finance, interní poznámky a veřejné
+                    komentáře pro klienta.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -530,7 +507,7 @@ export default async function AdminClientDetailPage({
                 </div>
               </CardContent>
             </Card>
-          </section>
+          ) : null}
         </div>
       </section>
     </div>

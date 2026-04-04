@@ -26,7 +26,7 @@ export async function createClientAction(formData: FormData) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Vytvoreni klienta se nepovedlo.";
-    redirect(`/admin/clients?error=${encodeURIComponent(message)}`);
+    redirect(`/admin/clients?modal=create&error=${encodeURIComponent(message)}`);
   }
 
   redirect(`/admin/clients?success=created&clientId=${clientId}`);
