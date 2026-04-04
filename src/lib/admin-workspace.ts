@@ -1,5 +1,11 @@
-﻿import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createBizKitHubOrder,
+  syncBizKitHubCustomer,
+  updateBizKitHubCustomer,
+  updateBizKitHubOrder,
+} from "@/lib/bizkithub/client";
 import {
   CAMPAIGN_STATUSES,
   CLIENT_PRIORITIES,
@@ -19,6 +25,10 @@ type ClientBaseRow = {
   affiliate: string | null;
   last_campaign_at: string | null;
   created_at: string;
+  crm_notes?: string | null;
+  bizkithub_customer_id: string | null;
+  bizkithub_customer_synced_at: string | null;
+  bizkithub_customer_sync_error: string | null;
 };
 
 type MembershipCountRow = {
@@ -75,6 +85,9 @@ type CampaignBaseRow = {
   report_url: string | null;
   platforms?: string[] | null;
   target_countries?: string[] | null;
+  bizkithub_order_id: string | null;
+  bizkithub_order_synced_at: string | null;
+  bizkithub_order_sync_error: string | null;
   client: CampaignRelationRow | CampaignRelationRow[] | null;
   interpreter: InterpreterRelationRow | InterpreterRelationRow[] | null;
 };
@@ -162,6 +175,50 @@ type UpdateCampaignInput = {
   currencyCode: string;
 };
 
+type RecordMutationResult = {
+  id: string;
+  syncError: string | null;
+};
+
+type RecordUpdateResult = {
+  syncError: string | null;
+};
+
+type ClientBizKitHubSyncRow = {
+  id: string;
+  name: string;
+  primary_email: string | null;
+  country: string | null;
+  affiliate: string | null;
+  bizkithub_customer_id: string | null;
+  bizkithub_customer_synced_at: string | null;
+  bizkithub_customer_sync_error: string | null;
+};
+
+type CampaignBizKitHubSyncRow = {
+  id: string;
+  order_number: string | null;
+  name: string;
+  ordered_at: string | null;
+  total_amount: number | null;
+  currency_code: string;
+  public_comment: string | null;
+  bizkithub_order_id: string | null;
+  bizkithub_order_synced_at: string | null;
+  bizkithub_order_sync_error: string | null;
+  client: CampaignSyncClientRow | CampaignSyncClientRow[] | null;
+};
+
+type CampaignSyncClientRow = {
+  id: string;
+  name: string;
+  primary_email: string | null;
+  country: string | null;
+  bizkithub_customer_id: string | null;
+};
+
+type SyncAttemptMode = "create" | "update" | "retry";
+
 function pickJoinedRecord<T>(value: T | T[] | null) {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -173,6 +230,14 @@ function pickJoinedRecord<T>(value: T | T[] | null) {
 function normalizeText(value: string) {
   const normalized = value.trim();
   return normalized ? normalized : null;
+}
+
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallback;
 }
 
 function toAmount(value: string) {
@@ -215,12 +280,275 @@ function validateCampaignEnums(campaignStatus: string, paymentStatus: string) {
   }
 }
 
+function buildBizKitHubCustomerPayload(client: ClientBizKitHubSyncRow) {
+  if (!client.primary_email) {
+    throw new Error("BizKitHub customer sync vyžaduje primární e-mail klienta.");
+  }
+
+  return {
+    companyName: client.name,
+    email: client.primary_email,
+    country: client.country ?? undefined,
+    note: client.affiliate ?? undefined,
+    formData: {
+      digitonClientId: client.id,
+      source: "digiton-admin-dashboard",
+    },
+  };
+}
+
+function buildBizKitHubOrderPayload(campaign: CampaignBizKitHubSyncRow) {
+  const client = pickJoinedRecord(campaign.client);
+
+  if (!client) {
+    throw new Error("Kampaň není navázaná na klienta, order sync nelze spustit.");
+  }
+
+  if (!client.primary_email) {
+    throw new Error("BizKitHub order sync vyžaduje, aby klient měl primární e-mail.");
+  }
+
+  return {
+    orderGroupId: "digiton-campaign",
+    locale: "cs",
+    currency: campaign.currency_code || "CZK",
+    customer: {
+      email: client.primary_email,
+      companyName: client.name,
+      country: client.country ?? undefined,
+      refNo: client.bizkithub_customer_id ?? undefined,
+    },
+    items: [
+      {
+        label: campaign.name,
+        count: 1,
+        price: campaign.total_amount ?? 0,
+        vat: 0,
+        unit: "ks",
+        productCode: campaign.order_number ?? campaign.id,
+      },
+    ],
+    publicNotice: campaign.public_comment ?? undefined,
+    internalNotice: `Digiton kampan ${campaign.name}`,
+    formData: {
+      digitonCampaignId: campaign.id,
+      digitonClientId: client.id,
+      digitonOrderNumber: campaign.order_number ?? "",
+      orderedAt: campaign.ordered_at ?? "",
+    },
+  };
+}
+
+async function getClientRowForBizKitHubSync(clientId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const result = await supabaseAdmin
+    .from("clients")
+    .select(
+      "id, name, primary_email, country, affiliate, bizkithub_customer_id, bizkithub_customer_synced_at, bizkithub_customer_sync_error",
+    )
+    .eq("id", clientId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(`Nepodařilo se načíst klienta pro BizKitHub sync: ${result.error.message}`);
+  }
+
+  if (!result.data) {
+    throw new Error("Klient pro BizKitHub sync neexistuje.");
+  }
+
+  return result.data as ClientBizKitHubSyncRow;
+}
+
+async function getCampaignRowForBizKitHubSync(campaignId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const result = await supabaseAdmin
+    .from("campaigns")
+    .select(
+      "id, order_number, name, ordered_at, total_amount, currency_code, public_comment, bizkithub_order_id, bizkithub_order_synced_at, bizkithub_order_sync_error, client:clients(id, name, primary_email, country, bizkithub_customer_id)",
+    )
+    .eq("id", campaignId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(`Nepodařilo se načíst kampaň pro BizKitHub sync: ${result.error.message}`);
+  }
+
+  if (!result.data) {
+    throw new Error("Kampaň pro BizKitHub sync neexistuje.");
+  }
+
+  return result.data as CampaignBizKitHubSyncRow;
+}
+
+async function persistClientSyncSuccess(clientId: string, externalId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin
+    .from("clients")
+    .update({
+      bizkithub_customer_id: externalId,
+      bizkithub_customer_synced_at: new Date().toISOString(),
+      bizkithub_customer_sync_error: null,
+    })
+    .eq("id", clientId)
+    .is("archived_at", null);
+
+  if (error) {
+    throw new Error(`Nepodařilo se uložit customer sync metadata: ${error.message}`);
+  }
+}
+
+async function persistClientSyncError(clientId: string, syncError: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin
+    .from("clients")
+    .update({
+      bizkithub_customer_sync_error: syncError,
+    })
+    .eq("id", clientId)
+    .is("archived_at", null);
+
+  if (error) {
+    throw new Error(`Nepodařilo se uložit customer sync chybu: ${error.message}`);
+  }
+}
+
+async function persistCampaignSyncSuccess(campaignId: string, externalId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin
+    .from("campaigns")
+    .update({
+      bizkithub_order_id: externalId,
+      bizkithub_order_synced_at: new Date().toISOString(),
+      bizkithub_order_sync_error: null,
+    })
+    .eq("id", campaignId)
+    .is("archived_at", null);
+
+  if (error) {
+    throw new Error(`Nepodařilo se uložit order sync metadata: ${error.message}`);
+  }
+}
+
+async function persistCampaignSyncError(campaignId: string, syncError: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin
+    .from("campaigns")
+    .update({
+      bizkithub_order_sync_error: syncError,
+    })
+    .eq("id", campaignId)
+    .is("archived_at", null);
+
+  if (error) {
+    throw new Error(`Nepodařilo se uložit order sync chybu: ${error.message}`);
+  }
+}
+
+async function syncClientToBizKitHub(
+  clientId: string,
+  mode: SyncAttemptMode,
+): Promise<RecordUpdateResult> {
+  const client = await getClientRowForBizKitHubSync(clientId);
+
+  if (mode === "update" && !client.bizkithub_customer_id) {
+    return { syncError: null };
+  }
+
+  try {
+    const payload = buildBizKitHubCustomerPayload(client);
+    const response = client.bizkithub_customer_id
+      ? await updateBizKitHubCustomer(client.bizkithub_customer_id, payload)
+      : await syncBizKitHubCustomer(payload);
+
+    await persistClientSyncSuccess(clientId, response.externalId);
+
+    return { syncError: null };
+  } catch (error) {
+    const syncError = `BizKitHub customer sync se nepovedl: ${extractErrorMessage(
+      error,
+      "Neznámá chyba.",
+    )}`;
+    await persistClientSyncError(clientId, syncError);
+
+    return { syncError };
+  }
+}
+
+async function ensureClientCustomerBeforeOrderSync(clientId: string) {
+  const client = await getClientRowForBizKitHubSync(clientId);
+
+  if (client.bizkithub_customer_id) {
+    return client.bizkithub_customer_id;
+  }
+
+  const syncResult = await syncClientToBizKitHub(clientId, "retry");
+
+  if (syncResult.syncError) {
+    throw new Error(`Nejdřív se nepodařilo synchronizovat klienta: ${syncResult.syncError}`);
+  }
+
+  const refreshedClient = await getClientRowForBizKitHubSync(clientId);
+  return refreshedClient.bizkithub_customer_id;
+}
+
+async function syncCampaignToBizKitHub(
+  campaignId: string,
+  mode: SyncAttemptMode,
+): Promise<RecordUpdateResult> {
+  let campaign = await getCampaignRowForBizKitHubSync(campaignId);
+  const client = pickJoinedRecord(campaign.client);
+
+  if (!client) {
+    const syncError = "BizKitHub order sync se nepovedl: kampani chybi navazany klient.";
+    await persistCampaignSyncError(campaignId, syncError);
+    return { syncError };
+  }
+
+  if (mode === "update" && !campaign.bizkithub_order_id) {
+    return { syncError: null };
+  }
+
+  try {
+    await ensureClientCustomerBeforeOrderSync(client.id);
+    campaign = await getCampaignRowForBizKitHubSync(campaignId);
+    const payload = buildBizKitHubOrderPayload(campaign);
+    const response = campaign.bizkithub_order_id
+      ? await updateBizKitHubOrder(campaign.bizkithub_order_id, payload)
+      : await createBizKitHubOrder(payload);
+
+    await persistCampaignSyncSuccess(campaignId, response.externalId);
+
+    return { syncError: null };
+  } catch (error) {
+    const syncError = `BizKitHub order sync se nepovedl: ${extractErrorMessage(
+      error,
+      "Neznámá chyba.",
+    )}`;
+    await persistCampaignSyncError(campaignId, syncError);
+
+    return { syncError };
+  }
+}
+
+export async function retryClientBizKitHubSync(clientId: string) {
+  return syncClientToBizKitHub(clientId, "retry");
+}
+
+export async function retryCampaignBizKitHubSync(campaignId: string) {
+  return syncCampaignToBizKitHub(campaignId, "retry");
+}
+
 export async function getAdminClientsWorkspace() {
   const supabase = await createSupabaseServerClient();
   const [clientsResult, membershipsResult, campaignsResult, interpretersResult] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, client_type, client_status, priority, primary_email, country, affiliate, last_campaign_at, created_at")
+      .select(
+        "id, name, client_type, client_status, priority, primary_email, country, affiliate, last_campaign_at, created_at, bizkithub_customer_id, bizkithub_customer_synced_at, bizkithub_customer_sync_error",
+      )
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
     supabase.from("client_memberships").select("client_id, membership_status").is("archived_at", null),
@@ -246,7 +574,7 @@ export async function getAdminClientsWorkspace() {
 
   const membershipCountByClient = new Map<string, number>();
   const activeMembershipCountByClient = new Map<string, number>();
-  for (const membership of ((membershipsResult.data ?? []) as MembershipCountRow[])) {
+  for (const membership of (membershipsResult.data ?? []) as MembershipCountRow[]) {
     membershipCountByClient.set(
       membership.client_id,
       (membershipCountByClient.get(membership.client_id) ?? 0) + 1,
@@ -260,12 +588,12 @@ export async function getAdminClientsWorkspace() {
   }
 
   const campaignCountByClient = new Map<string, number>();
-  for (const campaign of ((campaignsResult.data ?? []) as CampaignCountRow[])) {
+  for (const campaign of (campaignsResult.data ?? []) as CampaignCountRow[]) {
     campaignCountByClient.set(campaign.client_id, (campaignCountByClient.get(campaign.client_id) ?? 0) + 1);
   }
 
   const interpreterCountByClient = new Map<string, number>();
-  for (const interpreter of ((interpretersResult.data ?? []) as InterpreterCountRow[])) {
+  for (const interpreter of (interpretersResult.data ?? []) as InterpreterCountRow[]) {
     interpreterCountByClient.set(
       interpreter.owner_client_id,
       (interpreterCountByClient.get(interpreter.owner_client_id) ?? 0) + 1,
@@ -296,7 +624,9 @@ export async function getAdminClientDetailWorkspace(clientId: string) {
   const [clientResult, interpretersResult, campaignsResult, membershipsResult] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, client_type, client_status, priority, primary_email, country, affiliate, crm_notes, created_at")
+      .select(
+        "id, name, client_type, client_status, priority, primary_email, country, affiliate, crm_notes, created_at, bizkithub_customer_id, bizkithub_customer_synced_at, bizkithub_customer_sync_error",
+      )
       .eq("id", clientId)
       .is("archived_at", null)
       .maybeSingle(),
@@ -308,7 +638,9 @@ export async function getAdminClientDetailWorkspace(clientId: string) {
       .order("created_at", { ascending: false }),
     supabase
       .from("campaigns")
-      .select("id, order_number, name, campaign_status, payment_status, start_date, end_date, total_amount, currency_code")
+      .select(
+        "id, order_number, name, campaign_status, payment_status, start_date, end_date, total_amount, currency_code, bizkithub_order_id, bizkithub_order_synced_at, bizkithub_order_sync_error",
+      )
       .eq("client_id", clientId)
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
@@ -336,9 +668,22 @@ export async function getAdminClientDetailWorkspace(clientId: string) {
   }
 
   return {
-    client: clientResult.data,
+    client: clientResult.data as ClientBaseRow,
     interpreters: (interpretersResult.data ?? []) as InterpreterWorkspaceItem[],
-    campaigns: campaignsResult.data ?? [],
+    campaigns: (campaignsResult.data ?? []) as Array<{
+      id: string;
+      order_number: string | null;
+      name: string;
+      campaign_status: string;
+      payment_status: string;
+      start_date: string | null;
+      end_date: string | null;
+      total_amount: number | null;
+      currency_code: string;
+      bizkithub_order_id: string | null;
+      bizkithub_order_synced_at: string | null;
+      bizkithub_order_sync_error: string | null;
+    }>,
     memberships: (membershipsResult.data ?? []).map((membership) => ({
       ...membership,
       user: pickJoinedRecord(membership.user),
@@ -346,7 +691,7 @@ export async function getAdminClientDetailWorkspace(clientId: string) {
   };
 }
 
-export async function createClientRecord(input: CreateClientInput) {
+export async function createClientRecord(input: CreateClientInput): Promise<RecordMutationResult> {
   const supabaseAdmin = createSupabaseAdminClient();
 
   validateClientEnums(input.clientType, input.clientStatus, input.priority);
@@ -376,10 +721,18 @@ export async function createClientRecord(input: CreateClientInput) {
     throw new Error(`Nepodařilo se vytvořit klienta: ${error.message}`);
   }
 
-  return data.id;
+  const syncResult = await syncClientToBizKitHub(data.id, "create");
+
+  return {
+    id: data.id,
+    syncError: syncResult.syncError,
+  };
 }
 
-export async function updateClientRecord(clientId: string, input: UpdateClientInput) {
+export async function updateClientRecord(
+  clientId: string,
+  input: UpdateClientInput,
+): Promise<RecordUpdateResult> {
   const supabaseAdmin = createSupabaseAdminClient();
   validateClientEnums(input.clientType, input.clientStatus, input.priority);
 
@@ -406,6 +759,8 @@ export async function updateClientRecord(clientId: string, input: UpdateClientIn
   if (error) {
     throw new Error(`Nepodařilo se upravit klienta: ${error.message}`);
   }
+
+  return syncClientToBizKitHub(clientId, "update");
 }
 
 export async function createInterpreterRecord(input: CreateInterpreterInput) {
@@ -446,7 +801,7 @@ export async function getAdminCampaignsWorkspace() {
     supabase
       .from("campaigns")
       .select(
-        "id, order_number, name, client_id, interpreter_id, ordered_at, start_date, end_date, campaign_status, payment_status, total_amount, currency_code, promoted_object, package_name, public_comment, report_url, platforms, target_countries, client:clients(id, name, client_type), interpreter:interpreters(id, name)",
+        "id, order_number, name, client_id, interpreter_id, ordered_at, start_date, end_date, campaign_status, payment_status, total_amount, currency_code, promoted_object, package_name, public_comment, report_url, platforms, target_countries, bizkithub_order_id, bizkithub_order_synced_at, bizkithub_order_sync_error, client:clients(id, name, client_type), interpreter:interpreters(id, name)",
       )
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
@@ -478,9 +833,15 @@ export async function getAdminCampaignsWorkspace() {
     interpreters: (interpretersResult.data ?? []) as InterpreterRelationRow[],
     summary: {
       total: campaigns.length,
-      active: campaigns.filter((campaign) => ["launched", "preparing", "paused"].includes(campaign.campaign_status)).length,
-      awaiting: campaigns.filter((campaign) => ["awaiting_approval", "awaiting_assets"].includes(campaign.campaign_status)).length,
-      finished: campaigns.filter((campaign) => ["finished", "canceled"].includes(campaign.campaign_status)).length,
+      active: campaigns.filter((campaign) =>
+        ["launched", "preparing", "paused"].includes(campaign.campaign_status),
+      ).length,
+      awaiting: campaigns.filter((campaign) =>
+        ["awaiting_approval", "awaiting_assets"].includes(campaign.campaign_status),
+      ).length,
+      finished: campaigns.filter((campaign) =>
+        ["finished", "canceled"].includes(campaign.campaign_status),
+      ).length,
     },
   };
 }
@@ -491,7 +852,7 @@ export async function getAdminCampaignDetailWorkspace(campaignId: string) {
     supabase
       .from("campaigns")
       .select(
-        "id, order_number, name, client_id, interpreter_id, ordered_at, start_date, end_date, campaign_status, payment_status, total_amount, currency_code, promoted_object, package_name, public_comment, report_url, platforms, target_countries, client:clients(id, name), interpreter:interpreters(id, name)",
+        "id, order_number, name, client_id, interpreter_id, ordered_at, start_date, end_date, campaign_status, payment_status, total_amount, currency_code, promoted_object, package_name, public_comment, report_url, platforms, target_countries, bizkithub_order_id, bizkithub_order_synced_at, bizkithub_order_sync_error, client:clients(id, name), interpreter:interpreters(id, name)",
       )
       .eq("id", campaignId)
       .is("archived_at", null)
@@ -525,7 +886,9 @@ export async function getAdminCampaignDetailWorkspace(campaignId: string) {
   };
 }
 
-export async function createCampaignRecord(input: CreateCampaignInput) {
+export async function createCampaignRecord(
+  input: CreateCampaignInput,
+): Promise<RecordMutationResult> {
   const supabaseAdmin = createSupabaseAdminClient();
 
   const name = input.name.trim();
@@ -566,10 +929,18 @@ export async function createCampaignRecord(input: CreateCampaignInput) {
     throw new Error(`Nepodařilo se vytvořit kampaň: ${error.message}`);
   }
 
-  return data.id;
+  const syncResult = await syncCampaignToBizKitHub(data.id, "create");
+
+  return {
+    id: data.id,
+    syncError: syncResult.syncError,
+  };
 }
 
-export async function updateCampaignRecord(campaignId: string, input: UpdateCampaignInput) {
+export async function updateCampaignRecord(
+  campaignId: string,
+  input: UpdateCampaignInput,
+): Promise<RecordUpdateResult> {
   const supabaseAdmin = createSupabaseAdminClient();
 
   const name = input.name.trim();
@@ -603,4 +974,6 @@ export async function updateCampaignRecord(campaignId: string, input: UpdateCamp
   if (error) {
     throw new Error(`Nepodařilo se upravit kampaň: ${error.message}`);
   }
+
+  return syncCampaignToBizKitHub(campaignId, "update");
 }

@@ -44,3 +44,11 @@ export function getServiceRoleKey() {
 export function getConfiguredEnvKeys() {
   return REQUIRED_ENV_KEYS.filter((key) => Boolean(PUBLIC_ENV[key]));
 }
+
+export function getBizKitHubBaseUrl() {
+  return process.env.BIZKITHUB_API_BASE_URL ?? "";
+}
+
+export function getBizKitHubApiKey() {
+  return process.env.BIZKITHUB_API_KEY ?? "";
+}

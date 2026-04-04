@@ -22,7 +22,9 @@ System ma:
 - nahradit cast jednoduche CRM agendy z Pipedrive,
 - dat internimu tymu prehled o klientech a kampanich,
 - dat klientum jednoduchy pohled na jejich kampane a zakladni udaje,
-- byt pripraveny na budouci online objednavky, Stripe a automatizace.
+- byt pripraveny na hybridni provozni architekturu, kde vlastni UI a agenturni logika zustava u nas,
+- byt pripraveny na budouci napojeni obchodni vrstvy pres BizKitHub,
+- byt pripraveny na budouci automatizace, platby a finance bez nutnosti psat vse od nuly.
 
 ## 3. Scope MVP
 
@@ -61,6 +63,17 @@ Schvaleny technologicky smer pro MVP:
 - Resend
 - Supabase Storage pro PDF smlouvy
 - 2FA pro admin ucty
+
+### 4.1 Hybridni architektura MVP
+
+MVP uz neni navrhovano jako ciste izolovana aplikace s kompletne vlastnim backendem pro vsechny agendy.
+Pro dalsi vlny plati hybridni model:
+
+- nase aplikace zustava hlavnim pracovnim rozhranim pro admin tym a klienty,
+- auth, agenturni workflow, interpreti, interni poznamky a klientsky dashboard zustavaji u nas,
+- BizKitHub se postupne pouzije jako obchodni backend pro customer / order / finance vrstvu,
+- prvni integracni vlna resi jen vazbu `nas klient -> BizKitHub customer` a `nase kampan -> BizKitHub order`,
+- e-shop, payment readback, faktury, uctenky a dalsi finance UX se budou navazovat az po overeni prvni integracni vlny.
 
 ## 5. Hlavni uzivatele a role
 
@@ -545,7 +558,7 @@ Temata, ktera se maji rozhodnout pozdeji nebo v samostatnych modulech:
 - detailni dashboardy,
 - detailni e-mailove sablony,
 - online objednavkovy formular,
-- Stripe a platby,
+- Stripe a platby jako samostatna vlastni vrstva jen pokud BizKitHub nebude stacit,
 - audit log,
 - vice interni roli,
 - vice fakturacnich subjektu pod jednim klientem,

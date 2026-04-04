@@ -1,25 +1,37 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createInterpreterAction, updateClientDetailAction } from "@/app/admin/clients/[clientId]/actions";
+import {
+  createInterpreterAction,
+  retryClientDetailBizKitHubSyncAction,
+  updateClientDetailAction,
+} from "@/app/admin/clients/[clientId]/actions";
 import { AdminClientDetailTabs } from "@/components/admin/admin-client-detail-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireAdminContext } from "@/lib/auth/server";
 import { getAdminClientDetailWorkspace } from "@/lib/admin-workspace";
-import { formatClientStatus, formatClientType, formatPriority } from "@/lib/admin-labels";
+import {
+  formatBizKitHubSyncStatus,
+  formatClientStatus,
+  formatClientType,
+  formatPriority,
+  getBizKitHubSyncBadgeClassName,
+  getBizKitHubSyncStatus,
+} from "@/lib/admin-labels";
+import { requireAdminContext } from "@/lib/auth/server";
 import { CLIENT_PRIORITIES, CLIENT_STATUSES, CLIENT_TYPES } from "@/lib/domain/constants";
 
 const SUCCESS_MESSAGES = {
   updated: "Klient byl upraven.",
   "interpreter-created": "Interpret byl přidán ke klientovi.",
+  "sync-retried": "Synchronizace klienta byla znovu spuštěná.",
 };
 
 type ClientTabKey = "profile" | "team" | "campaigns" | "finance" | "documents";
 
 type AdminClientDetailPageProps = {
   params: Promise<{ clientId: string }>;
-  searchParams: Promise<{ success?: string; error?: string; tab?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; warning?: string; tab?: string }>;
 };
 
 function getActiveTab(tab: string | undefined): ClientTabKey {
@@ -51,6 +63,10 @@ export default async function AdminClientDetailPage({
   const successMessage = query.success
     ? SUCCESS_MESSAGES[query.success as keyof typeof SUCCESS_MESSAGES]
     : null;
+  const clientSyncStatus = getBizKitHubSyncStatus(
+    workspace.client.bizkithub_customer_id,
+    workspace.client.bizkithub_customer_sync_error,
+  );
   const activeTeamCount = workspace.memberships.filter(
     (membership) => membership.membership_status === "active",
   ).length;
@@ -71,6 +87,11 @@ export default async function AdminClientDetailPage({
           {query.error}
         </div>
       ) : null}
+      {query.warning ? (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {query.warning}
+        </div>
+      ) : null}
 
       <section className="grid gap-6 2xl:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="self-start space-y-6 2xl:sticky 2xl:top-28">
@@ -82,14 +103,18 @@ export default async function AdminClientDetailPage({
                 <Badge variant="outline">{formatClientType(workspace.client.client_type)}</Badge>
                 <Badge variant="outline">{formatClientStatus(workspace.client.client_status)}</Badge>
                 <Badge variant="outline">{formatPriority(workspace.client.priority)}</Badge>
+                <Badge className={getBizKitHubSyncBadgeClassName(clientSyncStatus)} variant="outline">
+                  {formatBizKitHubSyncStatus(clientSyncStatus)}
+                </Badge>
               </div>
               <div className="space-y-3">
                 <CardTitle className="text-4xl leading-tight text-white">
                   {workspace.client.name}
                 </CardTitle>
                 <CardDescription className="text-base leading-7 text-slate-300">
-                  Tohle je pracovní detail klienta. Horní část a levý souhrn zůstávají na místě, mění se
-                  jen obsah aktivní záložky — stejně jako u nástrojů typu Pipedrive nebo Bandzone profilů.
+                  Tohle je pracovní detail klienta. Horní část a levý souhrn zůstávají na místě,
+                  mění se jen obsah aktivní záložky — stejně jako u nástrojů typu Pipedrive nebo
+                  Bandzone profilů.
                 </CardDescription>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
@@ -134,6 +159,19 @@ export default async function AdminClientDetailPage({
                   {linkedCampaignRevenue.toLocaleString("cs-CZ")} CZK
                 </p>
               </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:col-span-2 2xl:col-span-1">
+                <p className="text-sm text-slate-400">BizKitHub sync</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge className={getBizKitHubSyncBadgeClassName(clientSyncStatus)} variant="outline">
+                    {formatBizKitHubSyncStatus(clientSyncStatus)}
+                  </Badge>
+                  {workspace.client.bizkithub_customer_id ? (
+                    <span className="text-xs text-slate-400">
+                      ID: <span className="text-white">{workspace.client.bizkithub_customer_id}</span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -160,6 +198,22 @@ export default async function AdminClientDetailPage({
                   {workspace.client.crm_notes?.trim() || "Zatím bez interní CRM poznámky."}
                 </p>
               </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                <p className="text-slate-400">BizKitHub customer</p>
+                <p className="mt-2 text-white">
+                  {workspace.client.bizkithub_customer_id ?? "Zatím bez propojení do BizKitHub customer vrstvy."}
+                </p>
+                {workspace.client.bizkithub_customer_synced_at ? (
+                  <p className="mt-2 text-xs text-slate-400">
+                    Poslední sync: {new Date(workspace.client.bizkithub_customer_synced_at).toLocaleString("cs-CZ")}
+                  </p>
+                ) : null}
+                {workspace.client.bizkithub_customer_sync_error ? (
+                  <p className="mt-3 text-sm leading-6 text-rose-200">
+                    {workspace.client.bizkithub_customer_sync_error}
+                  </p>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         </aside>
@@ -171,7 +225,8 @@ export default async function AdminClientDetailPage({
                 <div className="space-y-2">
                   <CardTitle className="text-white">Navázané kampaně</CardTitle>
                   <CardDescription className="text-slate-300">
-                    Zatím naše interní kampaňová vrstva. Později sem navážeme i obchodní stav objednávky a finance.
+                    Zatím naše interní kampaňová vrstva. Později sem navážeme i obchodní stav
+                    objednávky a finance.
                   </CardDescription>
                 </div>
                 <Link
@@ -187,34 +242,57 @@ export default async function AdminClientDetailPage({
                     Klient zatím nemá žádné kampaně.
                   </div>
                 ) : (
-                  workspace.campaigns.map((campaign) => (
-                    <div
-                      className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between"
-                      key={campaign.id}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold text-white">{campaign.name}</p>
-                          {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
-                          <Badge variant="outline">{campaign.campaign_status}</Badge>
-                          <Badge variant="outline">{campaign.payment_status}</Badge>
-                        </div>
-                        <p className="text-sm text-slate-300">
-                          {campaign.start_date ?? "?"} → {campaign.end_date ?? "?"}
-                          {" • "}
-                          {campaign.total_amount
-                            ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
-                            : "částka neuvedena"}
-                        </p>
-                      </div>
-                      <Link
-                        className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
-                        href={`/admin/campaigns/${campaign.id}`}
+                  workspace.campaigns.map((campaign) => {
+                    const campaignSyncStatus = getBizKitHubSyncStatus(
+                      campaign.bizkithub_order_id,
+                      campaign.bizkithub_order_sync_error,
+                    );
+
+                    return (
+                      <div
+                        className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between"
+                        key={campaign.id}
                       >
-                        Detail kampaně
-                      </Link>
-                    </div>
-                  ))
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-white">{campaign.name}</p>
+                            {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
+                            <Badge variant="outline">{campaign.campaign_status}</Badge>
+                            <Badge variant="outline">{campaign.payment_status}</Badge>
+                            <Badge
+                              className={getBizKitHubSyncBadgeClassName(campaignSyncStatus)}
+                              variant="outline"
+                            >
+                              {formatBizKitHubSyncStatus(campaignSyncStatus)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-300">
+                            {campaign.start_date ?? "?"} → {campaign.end_date ?? "?"}
+                            {" • "}
+                            {campaign.total_amount
+                              ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
+                              : "částka neuvedena"}
+                          </p>
+                          {campaign.bizkithub_order_id ? (
+                            <p className="text-xs text-slate-400">
+                              BizKitHub order ID: <span className="text-white">{campaign.bizkithub_order_id}</span>
+                            </p>
+                          ) : null}
+                          {campaign.bizkithub_order_sync_error ? (
+                            <p className="text-sm leading-6 text-rose-200">
+                              {campaign.bizkithub_order_sync_error}
+                            </p>
+                          ) : null}
+                        </div>
+                        <Link
+                          className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                          href={`/admin/campaigns/${campaign.id}`}
+                        >
+                          Detail kampaně
+                        </Link>
+                      </div>
+                    );
+                  })
                 )}
               </CardContent>
             </Card>
@@ -231,8 +309,7 @@ export default async function AdminClientDetailPage({
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="font-medium text-white">Aktivita klienta</p>
                   <p className="mt-2">
-                    Po UI shellu sem doplníme timeline: změny stavu, finance, interní poznámky a veřejné
-                    komentáře pro klienta.
+                    Po UI shellu sem doplníme timeline: změny stavu, finance, interní poznámky a veřejné komentáře pro klienta.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -249,17 +326,51 @@ export default async function AdminClientDetailPage({
               <CardHeader>
                 <CardTitle className="text-white">Finance a objednávky</CardTitle>
                 <CardDescription className="text-slate-300">
-                  Tady napojíme BizKitHub: objednávky, platební stav, faktury a účtenky. Tahle záložka
-                  bude první přímý most mezi naším rozhraním a jejich backendem.
+                  Tady napojíme BizKitHub: objednávky, platební stav, faktury a účtenky. Tahle záložka bude první přímý most mezi naším rozhraním a jejich backendem.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="font-medium text-white">Source of truth</p>
                   <p className="mt-2">
-                    Obchodní část přesuneme do BizKitHubu. V našem detailu klienta pak zobrazíme stav
-                    objednávek, finance, faktury a odkazy na účtenky.
+                    Obchodní část přesuneme do BizKitHubu. V našem detailu klienta pak zobrazíme stav objednávek, finance, faktury a odkazy na účtenky.
                   </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-white">Stav customer syncu</p>
+                    <Badge className={getBizKitHubSyncBadgeClassName(clientSyncStatus)} variant="outline">
+                      {formatBizKitHubSyncStatus(clientSyncStatus)}
+                    </Badge>
+                  </div>
+                  <p className="mt-3">
+                    {workspace.client.bizkithub_customer_id
+                      ? `BizKitHub customer ID: ${workspace.client.bizkithub_customer_id}`
+                      : "Klient ještě nemá uložené BizKitHub customer ID."}
+                  </p>
+                  {workspace.client.bizkithub_customer_synced_at ? (
+                    <p className="mt-2 text-xs text-slate-400">
+                      Poslední sync: {new Date(workspace.client.bizkithub_customer_synced_at).toLocaleString("cs-CZ")}
+                    </p>
+                  ) : null}
+                  {workspace.client.bizkithub_customer_sync_error ? (
+                    <p className="mt-3 text-rose-200">{workspace.client.bizkithub_customer_sync_error}</p>
+                  ) : null}
+                  {workspace.client.bizkithub_customer_sync_error || !workspace.client.bizkithub_customer_id ? (
+                    <form
+                      action={retryClientDetailBizKitHubSyncAction.bind(null, workspace.client.id)}
+                      className="mt-4"
+                    >
+                      <input
+                        name="returnTo"
+                        type="hidden"
+                        value={`/admin/clients/${workspace.client.id}?tab=finance`}
+                      />
+                      <Button type="submit" variant="outline">
+                        Zkusit synchronizovat znovu
+                      </Button>
+                    </form>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl border border-dashed border-[#d8a629]/22 bg-[#d8a629]/8 p-4 text-[#f3d98e]">
                   První integrační krok: klient → objednávka → platební stav → faktura v našem detailu.
@@ -273,15 +384,11 @@ export default async function AdminClientDetailPage({
               <CardHeader>
                 <CardTitle className="text-white">Profil klienta</CardTitle>
                 <CardDescription className="text-slate-300">
-                  Základní interní editace klienta. Tahle sekce zůstane naše vlastní CRM vrstva i po
-                  napojení BizKitHubu.
+                  Základní interní editace klienta. Tahle sekce zůstane naše vlastní CRM vrstva i po napojení BizKitHubu.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form
-                  action={updateClientDetailAction.bind(null, workspace.client.id)}
-                  className="grid gap-4"
-                >
+                <form action={updateClientDetailAction.bind(null, workspace.client.id)} className="grid gap-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-slate-200">Název klienta</label>
@@ -389,8 +496,7 @@ export default async function AdminClientDetailPage({
                 <CardHeader>
                   <CardTitle className="text-white">Tým klienta</CardTitle>
                   <CardDescription className="text-slate-300">
-                    Tady držíme interní přehled lidí, kteří ke klientovi patří. Invite flow navážeme
-                    jako další krok nad už hotovou auth vrstvou.
+                    Tady držíme interní přehled lidí, kteří ke klientovi patří. Invite flow navážeme jako další krok nad už hotovou auth vrstvou.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -406,9 +512,7 @@ export default async function AdminClientDetailPage({
                       >
                         <div>
                           <p className="font-medium text-white">
-                            {membership.user?.full_name ??
-                              membership.user?.login_email ??
-                              "Neznámý uživatel"}
+                            {membership.user?.full_name ?? membership.user?.login_email ?? "Neznámý uživatel"}
                           </p>
                           <p className="mt-1 text-sm text-slate-400">
                             {membership.user?.login_email ?? "bez e-mailu"}
@@ -425,15 +529,11 @@ export default async function AdminClientDetailPage({
                 <CardHeader>
                   <CardTitle className="text-white">Přidat interpreta</CardTitle>
                   <CardDescription className="text-slate-300">
-                    Interpret je naše vlastní agenturní entita. Tohle nám BizKitHub sám o sobě nevyřeší,
-                    takže ji držíme u nás.
+                    Interpret je naše vlastní agenturní entita. Tohle nám BizKitHub sám o sobě nevyřeší, takže ji držíme u nás.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form
-                    action={createInterpreterAction.bind(null, workspace.client.id)}
-                    className="grid gap-4"
-                  >
+                  <form action={createInterpreterAction.bind(null, workspace.client.id)} className="grid gap-4">
                     <div className="grid gap-4 md:grid-cols-2">
                       <input
                         className="flex h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-[#d8a629]/40"

@@ -76,3 +76,46 @@ export function formatPaymentStatus(value: string) {
       return value.replaceAll("_", " ");
   }
 }
+
+export type BizKitHubSyncStatus = "synced" | "pending" | "error";
+
+export function getBizKitHubSyncStatus(
+  externalId: string | null,
+  syncError: string | null,
+): BizKitHubSyncStatus {
+  if (syncError) {
+    return "error";
+  }
+
+  if (externalId) {
+    return "synced";
+  }
+
+  return "pending";
+}
+
+export function formatBizKitHubSyncStatus(status: BizKitHubSyncStatus) {
+  switch (status) {
+    case "synced":
+      return "Synchronizovano";
+    case "pending":
+      return "Ceka na sync";
+    case "error":
+      return "Chyba syncu";
+    default:
+      return status;
+  }
+}
+
+export function getBizKitHubSyncBadgeClassName(status: BizKitHubSyncStatus) {
+  switch (status) {
+    case "synced":
+      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+    case "pending":
+      return "border-amber-500/30 bg-amber-500/10 text-amber-100";
+    case "error":
+      return "border-rose-500/30 bg-rose-500/10 text-rose-100";
+    default:
+      return "";
+  }
+}

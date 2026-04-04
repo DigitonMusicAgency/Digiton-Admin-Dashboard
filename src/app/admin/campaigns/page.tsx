@@ -1,20 +1,30 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { retryCampaignBizKitHubSyncAction } from "@/app/admin/campaigns/actions";
 import { DashboardModal } from "@/components/admin/dashboard-modal";
 import { AdminCampaignCreateForm } from "@/components/admin/campaign-create-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAdminCampaignsWorkspace } from "@/lib/admin-workspace";
-import { formatCampaignStatus, formatPaymentStatus } from "@/lib/admin-labels";
+import {
+  formatBizKitHubSyncStatus,
+  formatCampaignStatus,
+  formatPaymentStatus,
+  getBizKitHubSyncBadgeClassName,
+  getBizKitHubSyncStatus,
+} from "@/lib/admin-labels";
 
 const SUCCESS_MESSAGES = {
   created: "Kampaň byla vytvořena a je připravená pro další práci.",
+  "sync-retried": "Synchronizace kampaně byla znovu spuštěná.",
 };
 
 type AdminCampaignsPageProps = {
   searchParams: Promise<{
     success?: string;
     error?: string;
+    warning?: string;
     clientId?: string;
     modal?: string;
   }>;
@@ -40,7 +50,7 @@ export default async function AdminCampaignsPage({ searchParams }: AdminCampaign
             <CardTitle className="text-3xl text-white">Kampaňový modul pro interní provoz</CardTitle>
             <CardDescription className="max-w-3xl text-base leading-7 text-slate-300">
               Tohle je první operativní jádro produktu. Admin tu naváže kampaň na klienta, sleduje
-              stav práce a drží interní přehled bez zbytečného rušení formulářem v hlavním layoutu.
+              stav práce a nově i synchronizaci kampaně do BizKitHub order vrstvy.
             </CardDescription>
           </div>
         </CardHeader>
@@ -74,6 +84,11 @@ export default async function AdminCampaignsPage({ searchParams }: AdminCampaign
           {query.error}
         </div>
       ) : null}
+      {query.warning ? (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {query.warning}
+        </div>
+      ) : null}
 
       <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
         <CardHeader className="gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -98,60 +113,90 @@ export default async function AdminCampaignsPage({ searchParams }: AdminCampaign
               Zatím tu nejsou žádné kampaně. První založ přes tlačítko vpravo nahoře.
             </div>
           ) : (
-            workspace.campaigns.map((campaign) => (
-              <div key={campaign.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-xl font-semibold text-white">{campaign.name}</p>
-                      {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
-                      <Badge variant="outline">{formatCampaignStatus(campaign.campaign_status)}</Badge>
-                      <Badge variant="outline">{formatPaymentStatus(campaign.payment_status)}</Badge>
+            workspace.campaigns.map((campaign) => {
+              const syncStatus = getBizKitHubSyncStatus(
+                campaign.bizkithub_order_id,
+                campaign.bizkithub_order_sync_error,
+              );
+
+              return (
+                <div key={campaign.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xl font-semibold text-white">{campaign.name}</p>
+                        {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
+                        <Badge variant="outline">{formatCampaignStatus(campaign.campaign_status)}</Badge>
+                        <Badge variant="outline">{formatPaymentStatus(campaign.payment_status)}</Badge>
+                        <Badge className={getBizKitHubSyncBadgeClassName(syncStatus)} variant="outline">
+                          {formatBizKitHubSyncStatus(syncStatus)}
+                        </Badge>
+                      </div>
+                      <div className="grid gap-3 text-sm text-slate-300 md:grid-cols-2 xl:grid-cols-3">
+                        <p>
+                          Klient: <span className="text-white">{campaign.client?.name ?? "-"}</span>
+                        </p>
+                        <p>
+                          Interpret:{" "}
+                          <span className="text-white">{campaign.interpreter?.name ?? "bez interpreta"}</span>
+                        </p>
+                        <p>
+                          Částka:{" "}
+                          <span className="text-white">
+                            {campaign.total_amount
+                              ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
+                              : "neuvedena"}
+                          </span>
+                        </p>
+                        <p>
+                          Balíček: <span className="text-white">{campaign.package_name ?? "-"}</span>
+                        </p>
+                        <p>
+                          Promovaný objekt: <span className="text-white">{campaign.promoted_object ?? "-"}</span>
+                        </p>
+                        <p>
+                          Termín:{" "}
+                          <span className="text-white">
+                            {campaign.start_date ?? "?"} {"→"} {campaign.end_date ?? "?"}
+                          </span>
+                        </p>
+                      </div>
+                      {campaign.bizkithub_order_id ? (
+                        <p className="text-sm text-slate-400">
+                          BizKitHub order ID:{" "}
+                          <span className="text-white">{campaign.bizkithub_order_id}</span>
+                        </p>
+                      ) : null}
+                      {campaign.public_comment ? (
+                        <p className="text-sm leading-6 text-slate-300">{campaign.public_comment}</p>
+                      ) : null}
+                      {campaign.bizkithub_order_sync_error ? (
+                        <p className="max-w-3xl text-sm leading-6 text-rose-200">
+                          {campaign.bizkithub_order_sync_error}
+                        </p>
+                      ) : null}
                     </div>
-                    <div className="grid gap-3 text-sm text-slate-300 md:grid-cols-2 xl:grid-cols-3">
-                      <p>
-                        Klient: <span className="text-white">{campaign.client?.name ?? "-"}</span>
-                      </p>
-                      <p>
-                        Interpret:{" "}
-                        <span className="text-white">{campaign.interpreter?.name ?? "bez interpreta"}</span>
-                      </p>
-                      <p>
-                        Částka:{" "}
-                        <span className="text-white">
-                          {campaign.total_amount
-                            ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
-                            : "neuvedena"}
-                        </span>
-                      </p>
-                      <p>
-                        Balíček: <span className="text-white">{campaign.package_name ?? "-"}</span>
-                      </p>
-                      <p>
-                        Promovaný objekt: <span className="text-white">{campaign.promoted_object ?? "-"}</span>
-                      </p>
-                      <p>
-                        Termín:{" "}
-                        <span className="text-white">
-                          {campaign.start_date ?? "?"} {"→"} {campaign.end_date ?? "?"}
-                        </span>
-                      </p>
+                    <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+                      {campaign.bizkithub_order_sync_error || !campaign.bizkithub_order_id ? (
+                        <form action={retryCampaignBizKitHubSyncAction}>
+                          <input name="campaignId" type="hidden" value={campaign.id} />
+                          <input name="returnTo" type="hidden" value="/admin/campaigns" />
+                          <Button size="sm" variant="outline">
+                            Zkusit sync znovu
+                          </Button>
+                        </form>
+                      ) : null}
+                      <Link
+                        className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                        href={`/admin/campaigns/${campaign.id}`}
+                      >
+                        Detail kampaně
+                      </Link>
                     </div>
-                    {campaign.public_comment ? (
-                      <p className="text-sm leading-6 text-slate-300">{campaign.public_comment}</p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 items-start">
-                    <Link
-                      className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
-                      href={`/admin/campaigns/${campaign.id}`}
-                    >
-                      Detail kampaně
-                    </Link>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>

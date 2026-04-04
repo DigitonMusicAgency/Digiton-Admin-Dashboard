@@ -9,23 +9,25 @@ Tato slozka obsahuje aktualni textovou dokumentaci projektu v Markdownu.
 3. `module-spec-clients.md`
 4. `module-spec-campaigns.md`
 5. `module-spec-distribution.md`
-6. `implementation-spec-auth-core-mvp.md`
-7. `implementation-spec-client-access-management-mvp.md`
-8. `implementation-spec-client-profile-and-team-mvp.md`
-9. `implementation-spec-campaign-request-flow-mvp.md`
-10. `implementation-spec-campaign-operations-and-review-mvp.md`
-11. `implementation-spec-client-inbox-and-internal-notifications-mvp.md`
-12. `implementation-spec-campaign-reporting-and-client-updates-mvp.md`
-13. `implementation-spec-campaign-extension-requests-mvp.md`
-14. `implementation-spec-admin-dashboard-and-operational-summary-mvp.md`
-15. `implementation-spec-campaign-email-notifications-mvp.md`
-16. `implementation-spec-client-dashboard-summary-mvp.md`
-17. `implementation-spec-email-delivery-history-and-admin-visibility-mvp.md`
-18. `implementation-spec-client-notification-preferences-mvp.md`
-19. `implementation-spec-global-email-oversight-mvp.md`
-20. `implementation-spec-unsubscribe-links-and-off-app-preferences-mvp.md`
-21. `implementation-spec-email-analytics-and-trends-mvp.md`
-22. `implementation-spec-notification-preference-visibility-in-client-preview-mvp.md`
+6. `module-spec-bizkithub-integration.md`
+7. `implementation-spec-auth-core-mvp.md`
+8. `implementation-spec-client-access-management-mvp.md`
+9. `implementation-spec-client-profile-and-team-mvp.md`
+10. `implementation-spec-campaign-request-flow-mvp.md`
+11. `implementation-spec-campaign-operations-and-review-mvp.md`
+12. `implementation-spec-client-inbox-and-internal-notifications-mvp.md`
+13. `implementation-spec-campaign-reporting-and-client-updates-mvp.md`
+14. `implementation-spec-campaign-extension-requests-mvp.md`
+15. `implementation-spec-admin-dashboard-and-operational-summary-mvp.md`
+16. `implementation-spec-bizkithub-customer-and-order-sync-mvp.md`
+17. `implementation-spec-campaign-email-notifications-mvp.md`
+18. `implementation-spec-client-dashboard-summary-mvp.md`
+19. `implementation-spec-email-delivery-history-and-admin-visibility-mvp.md`
+20. `implementation-spec-client-notification-preferences-mvp.md`
+21. `implementation-spec-global-email-oversight-mvp.md`
+22. `implementation-spec-unsubscribe-links-and-off-app-preferences-mvp.md`
+23. `implementation-spec-email-analytics-and-trends-mvp.md`
+24. `implementation-spec-notification-preference-visibility-in-client-preview-mvp.md`
 
 ## Jak s dokumentaci pracovat
 
@@ -49,6 +51,8 @@ Tato slozka obsahuje aktualni textovou dokumentaci projektu v Markdownu.
 - Patnacty implementation spec pro MVP je `implementation-spec-unsubscribe-links-and-off-app-preferences-mvp.md`.
 - Sestnacty implementation spec pro MVP je `implementation-spec-email-analytics-and-trends-mvp.md`.
 - Sedmnacty implementation spec pro MVP je `implementation-spec-notification-preference-visibility-in-client-preview-mvp.md`.
+- Nova hybridni integracni vrstva je popsana v `module-spec-bizkithub-integration.md`.
+- Prvni BizKitHub implementacni vlna je popsana v `implementation-spec-bizkithub-customer-and-order-sync-mvp.md`.
 - Pokud vznikne nova obchodni logika, nejdriv se ma propsat do `Root Spec` nebo `Module Spec`, ne rovnou do kodu.
 
 ## Aktualni stav

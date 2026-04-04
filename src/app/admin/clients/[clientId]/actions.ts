@@ -1,7 +1,11 @@
-﻿"use server";
+"use server";
 
 import { redirect } from "next/navigation";
-import { createInterpreterRecord, updateClientRecord } from "@/lib/admin-workspace";
+import {
+  createInterpreterRecord,
+  retryClientBizKitHubSync,
+  updateClientRecord,
+} from "@/lib/admin-workspace";
 import { requireAdminContext } from "@/lib/auth/server";
 
 function toText(value: FormDataEntryValue | null) {
@@ -12,11 +16,24 @@ function toBoolean(value: FormDataEntryValue | null) {
   return value === "on";
 }
 
+function appendQuery(path: string, entries: Record<string, string | undefined>) {
+  const url = new URL(path, "http://localhost");
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  }
+
+  return `${url.pathname}${url.search}`;
+}
+
 export async function updateClientDetailAction(clientId: string, formData: FormData) {
   await requireAdminContext();
+  let result: Awaited<ReturnType<typeof updateClientRecord>>;
 
   try {
-    await updateClientRecord(clientId, {
+    result = await updateClientRecord(clientId, {
       name: toText(formData.get("name")),
       clientType: toText(formData.get("clientType")),
       clientStatus: toText(formData.get("clientStatus")),
@@ -31,7 +48,13 @@ export async function updateClientDetailAction(clientId: string, formData: FormD
     redirect(`/admin/clients/${clientId}?tab=profile&error=${encodeURIComponent(message)}`);
   }
 
-  redirect(`/admin/clients/${clientId}?tab=profile&success=updated`);
+  redirect(
+    appendQuery(`/admin/clients/${clientId}`, {
+      tab: "profile",
+      success: "updated",
+      warning: result.syncError ?? undefined,
+    }),
+  );
 }
 
 export async function createInterpreterAction(clientId: string, formData: FormData) {
@@ -51,4 +74,17 @@ export async function createInterpreterAction(clientId: string, formData: FormDa
   }
 
   redirect(`/admin/clients/${clientId}?tab=team&success=interpreter-created`);
+}
+
+export async function retryClientDetailBizKitHubSyncAction(clientId: string, formData: FormData) {
+  await requireAdminContext();
+
+  const returnTo = toText(formData.get("returnTo")) || `/admin/clients/${clientId}?tab=finance`;
+  const result = await retryClientBizKitHubSync(clientId);
+
+  if (result.syncError) {
+    redirect(appendQuery(returnTo, { warning: result.syncError }));
+  }
+
+  redirect(appendQuery(returnTo, { success: "sync-retried" }));
 }
