@@ -1,13 +1,7 @@
 ﻿import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Building2,
-  CreditCard,
-  FileText,
-  Megaphone,
-  UsersRound,
-} from "lucide-react";
 import { createInterpreterAction, updateClientDetailAction } from "@/app/admin/clients/[clientId]/actions";
+import { AdminClientDetailTabs } from "@/components/admin/admin-client-detail-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,15 +15,7 @@ const SUCCESS_MESSAGES = {
   "interpreter-created": "Interpret byl přidán ke klientovi.",
 };
 
-const CLIENT_TABS = [
-  { key: "profile", label: "Profil", icon: Building2 },
-  { key: "team", label: "Tým a interpreti", icon: UsersRound },
-  { key: "campaigns", label: "Kampaně", icon: Megaphone },
-  { key: "finance", label: "Finance", icon: CreditCard },
-  { key: "documents", label: "Dokumenty", icon: FileText },
-] as const;
-
-type ClientTabKey = (typeof CLIENT_TABS)[number]["key"];
+type ClientTabKey = "profile" | "team" | "campaigns" | "finance" | "documents";
 
 type AdminClientDetailPageProps = {
   params: Promise<{ clientId: string }>;
@@ -42,7 +28,8 @@ function getActiveTab(tab: string | undefined): ClientTabKey {
     return fallback;
   }
 
-  return CLIENT_TABS.some((item) => item.key === tab) ? (tab as ClientTabKey) : fallback;
+  const validTabs: ClientTabKey[] = ["profile", "team", "campaigns", "finance", "documents"];
+  return validTabs.includes(tab as ClientTabKey) ? (tab as ClientTabKey) : fallback;
 }
 
 export default async function AdminClientDetailPage({
@@ -177,32 +164,111 @@ export default async function AdminClientDetailPage({
           </Card>
         </aside>
 
-        <div className="space-y-6">
-          <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
-            <CardContent className="flex flex-wrap gap-2 px-6 py-5">
-              {CLIENT_TABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = tab.key === activeTab;
-
-                return (
-                  <Link
-                    className={
-                      isActive
-                        ? "inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
-                        : "inline-flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-                    }
-                    href={`/admin/clients/${workspace.client.id}?tab=${tab.key}`}
-                    key={tab.key}
-                  >
-                    <Icon className="mr-2 h-4 w-4" />
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {activeTab === "profile" ? (
+        <AdminClientDetailTabs
+          campaignsPanel={
+            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
+              <CardHeader className="gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <CardTitle className="text-white">Navázané kampaně</CardTitle>
+                  <CardDescription className="text-slate-300">
+                    Zatím naše interní kampaňová vrstva. Později sem navážeme i obchodní stav objednávky a finance.
+                  </CardDescription>
+                </div>
+                <Link
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                  href={`/admin/campaigns?modal=create&clientId=${workspace.client.id}`}
+                >
+                  Nová kampaň
+                </Link>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {workspace.campaigns.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-300">
+                    Klient zatím nemá žádné kampaně.
+                  </div>
+                ) : (
+                  workspace.campaigns.map((campaign) => (
+                    <div
+                      className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between"
+                      key={campaign.id}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-white">{campaign.name}</p>
+                          {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
+                          <Badge variant="outline">{campaign.campaign_status}</Badge>
+                          <Badge variant="outline">{campaign.payment_status}</Badge>
+                        </div>
+                        <p className="text-sm text-slate-300">
+                          {campaign.start_date ?? "?"} → {campaign.end_date ?? "?"}
+                          {" • "}
+                          {campaign.total_amount
+                            ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
+                            : "částka neuvedena"}
+                        </p>
+                      </div>
+                      <Link
+                        className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
+                        href={`/admin/campaigns/${campaign.id}`}
+                      >
+                        Detail kampaně
+                      </Link>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          }
+          documentsPanel={
+            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
+              <CardHeader>
+                <CardTitle className="text-white">Dokumenty a aktivita</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Tohle je místo pro veřejné komentáře, interní poznámky a později i dokumenty z obchodní vrstvy.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="font-medium text-white">Aktivita klienta</p>
+                  <p className="mt-2">
+                    Po UI shellu sem doplníme timeline: změny stavu, finance, interní poznámky a veřejné
+                    komentáře pro klienta.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="font-medium text-white">Dokumenty</p>
+                  <p className="mt-2">
+                    Faktury a účtenky budeme tahat z BizKitHubu a zobrazovat je tady v našem vlastním dashboardu.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          }
+          financePanel={
+            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
+              <CardHeader>
+                <CardTitle className="text-white">Finance a objednávky</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Tady napojíme BizKitHub: objednávky, platební stav, faktury a účtenky. Tahle záložka
+                  bude první přímý most mezi naším rozhraním a jejich backendem.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="font-medium text-white">Source of truth</p>
+                  <p className="mt-2">
+                    Obchodní část přesuneme do BizKitHubu. V našem detailu klienta pak zobrazíme stav
+                    objednávek, finance, faktury a odkazy na účtenky.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-dashed border-[#d8a629]/22 bg-[#d8a629]/8 p-4 text-[#f3d98e]">
+                  První integrační krok: klient → objednávka → platební stav → faktura v našem detailu.
+                </div>
+              </CardContent>
+            </Card>
+          }
+          initialTab={activeTab}
+          profilePanel={
             <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
               <CardHeader>
                 <CardTitle className="text-white">Profil klienta</CardTitle>
@@ -316,9 +382,8 @@ export default async function AdminClientDetailPage({
                 </form>
               </CardContent>
             </Card>
-          ) : null}
-
-          {activeTab === "team" ? (
+          }
+          teamPanel={
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
                 <CardHeader>
@@ -402,113 +467,8 @@ export default async function AdminClientDetailPage({
                 </CardContent>
               </Card>
             </section>
-          ) : null}
-
-          {activeTab === "campaigns" ? (
-            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
-              <CardHeader className="gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-2">
-                  <CardTitle className="text-white">Navázané kampaně</CardTitle>
-                  <CardDescription className="text-slate-300">
-                    Zatím naše interní kampaňová vrstva. Později sem navážeme i obchodní stav objednávky a finance.
-                  </CardDescription>
-                </div>
-                <Link
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
-                  href={`/admin/campaigns?modal=create&clientId=${workspace.client.id}`}
-                >
-                  Nová kampaň
-                </Link>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {workspace.campaigns.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-slate-300">
-                    Klient zatím nemá žádné kampaně.
-                  </div>
-                ) : (
-                  workspace.campaigns.map((campaign) => (
-                    <div
-                      className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 lg:flex-row lg:items-center lg:justify-between"
-                      key={campaign.id}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold text-white">{campaign.name}</p>
-                          {campaign.order_number ? <Badge variant="secondary">{campaign.order_number}</Badge> : null}
-                          <Badge variant="outline">{campaign.campaign_status}</Badge>
-                          <Badge variant="outline">{campaign.payment_status}</Badge>
-                        </div>
-                        <p className="text-sm text-slate-300">
-                          {campaign.start_date ?? "?"} → {campaign.end_date ?? "?"}
-                          {" • "}
-                          {campaign.total_amount
-                            ? `${campaign.total_amount.toLocaleString("cs-CZ")} ${campaign.currency_code}`
-                            : "částka neuvedena"}
-                        </p>
-                      </div>
-                      <Link
-                        className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8a629]/40 bg-[#d8a629]/12 px-4 text-sm font-medium text-[#f3d98e] transition hover:bg-[#d8a629]/18"
-                        href={`/admin/campaigns/${campaign.id}`}
-                      >
-                        Detail kampaně
-                      </Link>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {activeTab === "finance" ? (
-            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
-              <CardHeader>
-                <CardTitle className="text-white">Finance a objednávky</CardTitle>
-                <CardDescription className="text-slate-300">
-                  Tady napojíme BizKitHub: objednávky, platební stav, faktury a účtenky. Tahle záložka
-                  bude první přímý most mezi naším rozhraním a jejich backendem.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="font-medium text-white">Source of truth</p>
-                  <p className="mt-2">
-                    Obchodní část přesuneme do BizKitHubu. V našem detailu klienta pak zobrazíme stav
-                    objednávek, finance, faktury a odkazy na účtenky.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-dashed border-[#d8a629]/22 bg-[#d8a629]/8 p-4 text-[#f3d98e]">
-                  První integrační krok: klient → objednávka → platební stav → faktura v našem detailu.
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {activeTab === "documents" ? (
-            <Card className="rounded-[28px] border-white/10 bg-[#161310] shadow-[0_18px_60px_rgba(0,0,0,0.3)]">
-              <CardHeader>
-                <CardTitle className="text-white">Dokumenty a aktivita</CardTitle>
-                <CardDescription className="text-slate-300">
-                  Tohle je místo pro veřejné komentáře, interní poznámky a později i dokumenty z obchodní vrstvy.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm leading-6 text-slate-300">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="font-medium text-white">Aktivita klienta</p>
-                  <p className="mt-2">
-                    Po UI shellu sem doplníme timeline: změny stavu, finance, interní poznámky a veřejné
-                    komentáře pro klienta.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="font-medium text-white">Dokumenty</p>
-                  <p className="mt-2">
-                    Faktury a účtenky budeme tahat z BizKitHubu a zobrazovat je tady v našem vlastním dashboardu.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
+          }
+        />
       </section>
     </div>
   );
