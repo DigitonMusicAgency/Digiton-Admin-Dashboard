@@ -22,7 +22,7 @@ export function SignOutButton({ variant = "outline" }: SignOutButtonProps) {
   }
 
   return (
-    <Button onClick={handleSignOut} type="button" variant={variant} disabled={isSubmitting}>
+    <Button disabled={isSubmitting} onClick={handleSignOut} type="button" variant={variant}>
       {isSubmitting ? "Odhlašuji..." : "Odhlásit se"}
     </Button>
   );
